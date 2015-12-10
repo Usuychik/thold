@@ -436,6 +436,13 @@ function template_save_edit() {
 		}
 	}
 
+	$save['thold_alert_subj_cst'] = $_POST['thold_alert_subj_cst'];
+	$save['thold_alert_text_cst'] = $_POST['thold_alert_text_cst'];
+	$save['thold_warning_subj_cst'] = $_POST['thold_warning_subj_cst'];
+	$save['thold_warning_text_cst'] = $_POST['thold_warning_text_cst'];
+	$save['thold_normal_subj_cst'] = $_POST['thold_normal_subj_cst'];
+	$save['thold_normal_text_cst'] = $_POST['thold_normal_text_cst'];
+
 	$save['notify_extra'] = $_POST['notify_extra'];
 	$save['notify_warning_extra'] = $_POST['notify_warning_extra'];
 	$save['alert_phones_extra'] = $_POST['alert_phones_extra'];
@@ -554,7 +561,10 @@ function template_edit() {
 		2 => 'Percentage',
 		3 => 'RPN Expression'
 	);
-
+	$switch_types = array (
+		0 => 'Off',
+		1 => 'On'
+	);
 	$rra_steps = db_fetch_assoc("SELECT rra.steps 
 		FROM data_template_data d 
 		JOIN data_template_data_rra a 
@@ -930,9 +940,71 @@ function template_edit() {
 			'value' => isset($thold_item_data['alert_phones']) ? $thold_item_data['alert_phones'] : '',
 			'none_value' => 'None',
 			'sql' => 'SELECT id, name FROM plugin_notification_lists ORDER BY name'
+		),
+		'custom_msg' => array(
+			'friendly_name' => 'Custom message and/or subject',
+			'method' => 'drop_array',
+			'on_change' => 'enableCustomMsg()',
+			'default' => '0',
+			'array' => $switch_types,
+			'description' => 'Put here your custom message and/or subject for treshold events. If you want to change only subject or message - leave another fild empty',
+			'value' => isset($thold_item_data['custom_msg']) ? $thold_item_data['custom_msg'] : '0',
+		),
+		'thold_alert_subj_cst' => array(
+			'friendly_name' => 'Cusctom Threshold Alert Subject',
+			'description' => 'This is the message that will be displayed at the Subject of all Threshold Alerts (500 Char MAX)',
+			'method' => 'textarea',
+			'class' => 'textAreaNotes',
+			'textarea_rows' => '2',
+			'textarea_cols' => '80',
+			'value' => isset($thold_item_data['thold_alert_subj_cst']) ? $thold_item_data['thold_alert_subj_cst'] : ''
+		),
+		'thold_alert_text_cst' => array(
+			'friendly_name' => 'Cusctom Threshold Alert Message',
+			'description' => 'This is the message that will be displayed at the top of all Threshold Alerts (255 Char MAX).  HTML is allowed, but will be removed for text only Emails.  There are several descriptors that may be used.<br>&#060DESCRIPTION&#062 &#060HOSTNAME&#062 &#060TIME&#062 &#060URL&#062 &#060GRAPHID&#062 &#060CURRENTVALUE&#062 &#060THRESHOLDNAME&#062  &#060DSNAME&#062 &#060SUBJECT&#062 &#060GRAPH&#062',
+			'method' => 'textarea',
+			'class' => 'textAreaNotes',
+			'textarea_rows' => '5',
+			'textarea_cols' => '80',
+			'value' => isset($thold_item_data['thold_alert_text_cst']) ? $thold_item_data['thold_alert_text_cst'] : ''
+		),
+		'thold_warning_subj_cst' => array(
+			'friendly_name' => 'Cusctom Threshold Warning Subject',
+			'description' => 'This is the message that will be displayed at the Subject of all threshold warnings (500 Char MAX)',
+			'method' => 'textarea',
+			'class' => 'textAreaNotes',
+			'textarea_rows' => '2',
+			'textarea_cols' => '80',
+			'value' => isset($thold_item_data['thold_warning_subj_cst']) ? $thold_item_data['thold_warning_subj_cst'] : ''
+		),
+		'thold_warning_text_cst' => array(
+			'friendly_name' => 'Cusctom Threshold Warning Message',
+			'description' => 'This is the message that will be displayed at the top of all threshold warnings (255 Char MAX).  HTML is allowed, but will be removed for text only Emails.  There are several descriptors that may be used.<br>&#060DESCRIPTION&#062 &#060HOSTNAME&#062 &#060TIME&#062 &#060URL&#062 &#060GRAPHID&#062 &#060CURRENTVALUE&#062 &#060THRESHOLDNAME&#062  &#060DSNAME&#062 &#060SUBJECT&#062 &#060GRAPH&#062',
+			'method' => 'textarea',
+			'class' => 'textAreaNotes',
+			'textarea_rows' => '5',
+			'textarea_cols' => '80',
+			'value' => isset($thold_item_data['thold_warning_text_cst']) ? $thold_item_data['thold_warning_text_cst'] : ''
+		),
+		'thold_normal_subj_cst' => array(
+			'friendly_name' => 'Cusctom Threshold Normal Subject',
+			'description' => 'This is the message that will be displayed at the Subject of all threshold normal events (500 Char MAX)',
+			'method' => 'textarea',
+			'class' => 'textAreaNotes',
+			'textarea_rows' => '2',
+			'textarea_cols' => '80',
+			'value' => isset($thold_item_data['thold_normal_subj_cst']) ? $thold_item_data['thold_normal_subj_cst'] : ''
+		),
+		'thold_normal_text_cst' => array(
+			'friendly_name' => 'Cusctom Threshold Normal Message',
+			'description' => 'This is the message that will be displayed at the top of all threshold normal events (255 Char MAX).  HTML is allowed, but will be removed for text only Emails.  There are several descriptors that may be used.<br>&#060DESCRIPTION&#062 &#060HOSTNAME&#062 &#060TIME&#062 &#060URL&#062 &#060GRAPHID&#062 &#060CURRENTVALUE&#062 &#060THRESHOLDNAME&#062  &#060DSNAME&#062 &#060SUBJECT&#062 &#060GRAPH&#062',
+			'method' => 'textarea',
+			'class' => 'textAreaNotes',
+			'textarea_rows' => '5',
+			'textarea_cols' => '80',
+			'value' => isset($thold_item_data['thold_normal_text_cst']) ? $thold_item_data['thold_normal_text_cst'] : ''
 		)
 	);
-
 	if (read_config_option("thold_disable_legacy") != 'on') {
 		$extra = array(
 			'notify_accounts' => array(

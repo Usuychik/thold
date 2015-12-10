@@ -235,9 +235,9 @@ function thold_upgrade_database () {
 	}
 
 	if (version_compare($oldv, '0.5.0.1', '<')) {
-        api_plugin_db_add_column ('thold', 'plugin_notification_lists', array('name' => 'phones', 'type' => 'varchar(512)', 'NULL' => true, 'after' => 'emails'));
+    	api_plugin_db_add_column ('thold', 'plugin_notification_lists', array('name' => 'phones', 'type' => 'varchar(512)', 'NULL' => true, 'after' => 'emails'));
 
-        api_plugin_db_add_column ('thold', 'host', array('name' => 'thold_send_sms', 'type' => 'int(10)', 'unsigned' => true, 'NULL' => false, 'default' => '1', 'after' => 'thold_host_email'));
+    	api_plugin_db_add_column ('thold', 'host', array('name' => 'thold_send_sms', 'type' => 'int(10)', 'unsigned' => true, 'NULL' => false, 'default' => '1', 'after' => 'thold_host_email'));
 		api_plugin_db_add_column ('thold', 'host', array('name' => 'thold_host_phone', 'type' => 'int(10)', 'unsigned' => true, 'NULL' => false, 'after' => 'thold_send_sms'));
 
 		api_plugin_db_add_column ('thold', 'thold_data', array('name' => 'alert_phones_extra', 'type' => 'varchar(512)', 'NULL' => true, 'after' => 'notify_warning_extra'));
@@ -249,8 +249,27 @@ function thold_upgrade_database () {
 		api_plugin_db_add_column ('thold', 'thold_template', array('name' => 'warning_phones_extra', 'type' => 'varchar(512)', 'NULL' => true, 'after' => 'alert_phones_extra'));
 		api_plugin_db_add_column ('thold', 'thold_template', array('name' => 'alert_command', 'type' => 'varchar(512)', 'NULL' => true, 'after' => 'warning_phones_extra'));
 		api_plugin_db_add_column ('thold', 'thold_template', array('name' => 'warning_command', 'type' => 'varchar(512)', 'NULL' => true, 'after' => 'alert_command'));
-        //add update functions for scripts
-    }
+  	}
+ 	if (version_compare($oldv, '0.5.0.2', '<')) {
+  		api_plugin_db_add_column ('thold', 'thold_data', array('name' => 'custom_msg', 'type' => "int(2)", 'NULL' => false, 'default' => '0', 'after' => 'notify_default'));
+		api_plugin_db_add_column ('thold', 'thold_data', array('name' => 'thold_alert_subj_cst', 'type' => 'varchar(512)', 'NULL' => true, 'after' => 'custom_msg'));
+		api_plugin_db_add_column ('thold', 'thold_data', array('name' => 'thold_alert_text_cst', 'type' => 'varchar(1024)', 'NULL' => true, 'after' => 'thold_alert_subj_cst'));
+		api_plugin_db_add_column ('thold', 'thold_data', array('name' => 'thold_warning_subj_cst', 'type' => 'varchar(512)', 'NULL' => true, 'after' => 'thold_alert_text_cst'));
+		api_plugin_db_add_column ('thold', 'thold_data', array('name' => 'thold_warning_text_cst', 'type' => 'varchar(1024)', 'NULL' => true, 'after' => 'thold_warning_subj_cst'));
+		api_plugin_db_add_column ('thold', 'thold_data', array('name' => 'thold_normal_subj_cst', 'type' => 'varchar(512)', 'NULL' => true, 'after' => 'thold_warning_subj_cst'));
+		api_plugin_db_add_column ('thold', 'thold_data', array('name' => 'thold_normal_text_cst', 'type' => 'varchar(1024)', 'NULL' => true, 'after' => 'thold_normal_subj_cst'));
+
+		api_plugin_db_add_column ('thold', 'thold_template', array('name' => 'custom_msg', 'type' => "int(2)", 'NULL' => false, 'default' => '0', 'after' => 'notify_default'));
+		api_plugin_db_add_column ('thold', 'thold_template', array('name' => 'thold_alert_subj_cst', 'type' => 'varchar(512)', 'NULL' => true, 'after' => 'custom_msg'));
+		api_plugin_db_add_column ('thold', 'thold_template', array('name' => 'thold_alert_text_cst', 'type' => 'varchar(1024)', 'NULL' => true, 'after' => 'thold_alert_subj_cst'));
+		api_plugin_db_add_column ('thold', 'thold_template', array('name' => 'thold_warning_subj_cst', 'type' => 'varchar(512)', 'NULL' => true, 'after' => 'thold_alert_text_cst'));
+		api_plugin_db_add_column ('thold', 'thold_template', array('name' => 'thold_warning_text_cst', 'type' => 'varchar(1024)', 'NULL' => true, 'after' => 'thold_warning_text_cst'));
+		api_plugin_db_add_column ('thold', 'thold_template', array('name' => 'thold_normal_subj_cst', 'type' => 'varchar(512)', 'NULL' => true, 'after' => 'thold_warning_subj_cst'));
+		api_plugin_db_add_column ('thold', 'thold_template', array('name' => 'thold_normal_text_cst', 'type' => 'varchar(1024)', 'NULL' => true, 'after' => 'thold_normal_subj_cst'));
+  	}
+  	if (version_compare($oldv, '0.5.0.3', '<')) {
+  		api_plugin_db_add_column ('thold', 'thold_data', array('name' => 'restoretime', 'type' => 'timestamp', 'NULL' => false, 'default' => '0000-00-00 00:00:00', 'after' => 'bl_thold_valid'));
+  	}
 
 	db_execute('UPDATE settings SET value = "' . $v['version'] . '" WHERE name = "plugin_thold_version"');
 	db_execute('UPDATE plugin_config SET version = "' . $v['version'] . '" WHERE directory = "thold"');
@@ -295,6 +314,13 @@ function thold_setup_database () {
 	$data['columns'][] = array('name' => 'oldvalue', 'type' => 'varchar(100)', 'NULL' => true);
 	$data['columns'][] = array('name' => 'repeat_alert', 'type' => 'int(10)', 'NULL' => true, 'unsigned' => true);
 	$data['columns'][] = array('name' => 'notify_default', 'type' => "enum('on','off')", 'NULL' => true);
+	$data['columns'][] = array('name' => 'custom_msg', 'type' => "int(2)", 'NULL' => false, 'default' => '0');
+	$data['columns'][] = array('name' => 'thold_alert_subj_cst', 'type' => 'varchar(512)', 'NULL' => true);
+	$data['columns'][] = array('name' => 'thold_alert_text_cst', 'type' => 'varchar(1024)', 'NULL' => true);
+	$data['columns'][] = array('name' => 'thold_warning_subj_cst', 'type' => 'varchar(512)', 'NULL' => true);
+	$data['columns'][] = array('name' => 'thold_warning_text_cst', 'type' => 'varchar(1024)', 'NULL' => true);
+	$data['columns'][] = array('name' => 'thold_normal_subj_cst', 'type' => 'varchar(512)', 'NULL' => true);
+	$data['columns'][] = array('name' => 'thold_normal_text_cst', 'type' => 'varchar(1024)', 'NULL' => true);
 	$data['columns'][] = array('name' => 'notify_extra', 'type' => 'varchar(512)', 'NULL' => true);
 	$data['columns'][] = array('name' => 'notify_warning_extra', 'type' => 'varchar(512)', 'NULL' => true);
 	$data['columns'][] = array('name' => 'alert_phones_extra', 'type' => 'varchar(512)', 'NULL' => true);
@@ -315,6 +341,7 @@ function thold_setup_database () {
 	$data['columns'][] = array('name' => 'exempt', 'type' => 'char(3)', 'NULL' => false, 'default' => 'off');
 	$data['columns'][] = array('name' => 'restored_alert', 'type' => 'char(3)', 'NULL' => false, 'default' => 'off');
 	$data['columns'][] = array('name' => 'bl_thold_valid', 'type' => 'int(10)', 'NULL' => false, 'default' => '0', 'unsigned' => true);
+	$data['columns'][] = array('name' => 'restoretime', 'type' => 'timestamp', 'NULL' => false, 'default' => '0000-00-00 00:00:00');
 	$data['primary'] = 'id';
 	$data['keys'][] = array('name' => 'host_id', 'columns' => 'host_id');
 	$data['keys'][] = array('name' => 'rra_id', 'columns' => 'rra_id');
@@ -363,6 +390,11 @@ function thold_setup_database () {
 	$data['columns'][] = array('name' => 'bl_alert', 'type' => 'int(2)', 'NULL' => false, 'default' => '0');
 	$data['columns'][] = array('name' => 'repeat_alert', 'type' => 'int(10)', 'NULL' => true, 'unsigned' => true);
 	$data['columns'][] = array('name' => 'notify_default', 'type' => "enum('on','off')", 'NULL' => true);
+	$data['columns'][] = array('name' => 'custom_msg', 'type' => "int(2)", 'NULL' => false, 'default' => '0');
+	$data['columns'][] = array('name' => 'thold_alert_subj_cst', 'type' => 'varchar(512)', 'NULL' => true);
+	$data['columns'][] = array('name' => 'thold_alert_text_cst', 'type' => 'varchar(1024)', 'NULL' => true);
+	$data['columns'][] = array('name' => 'thold_warning_subj_cst', 'type' => 'varchar(512)', 'NULL' => true);
+	$data['columns'][] = array('name' => 'thold_warning_text_cst', 'type' => 'varchar(1024)', 'NULL' => true);
 	$data['columns'][] = array('name' => 'notify_extra', 'type' => 'varchar(512)', 'NULL' => true);
 	$data['columns'][] = array('name' => 'notify_warning_extra', 'type' => 'varchar(512)', 'NULL' => true);
 	$data['columns'][] = array('name' => 'alert_phones_extra', 'type' => 'varchar(512)', 'NULL' => true);

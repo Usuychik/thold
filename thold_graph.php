@@ -300,6 +300,7 @@ function tholds() {
 	}
 
 	?>
+	<script src=<? print($config['url_path'] . 'plugins/thold/datetimepicker_css.js')?>></script>
 	<script type="text/javascript">
 	<!--
 
@@ -310,6 +311,35 @@ function tholds() {
 		strURL = strURL + '&rows=' + objForm.rows.value;
 		strURL = strURL + '&filter=' + objForm.filter.value;
 		document.location = strURL;
+	}
+
+	function showCalForm(parentId, disableUrl, restoretime) {
+		var calForm = document.getElementById("calForm");
+		var par = document.getElementById(parentId);
+		calForm.style.position="fixed";
+		var rect = par.getBoundingClientRect()
+		calForm.style.top=rect.bottom+"px";
+		calForm.style.left=rect.left+"px";
+		//document.getElementById("calEdit").value="0000-00-00 00:00:00";
+		document.getElementById("calEdit").value=restoretime;
+		if (calForm.style.display=='none'){
+			calForm.style.display='block';
+		}
+		document.getElementById("tempDisableBtn").onclick = function() {
+			restoreTime = document.getElementById("calEdit").value;
+			if (restoreTime == "0000-00-00 00:00:00"){
+				alert("Please set date and time")
+			} else{
+				location.href = disableUrl + "&restoretime=" + restoreTime;
+			}
+    	};
+	}
+
+	function hideCalForm(){
+		var x = document.getElementById("calForm");
+		if (x.style.display=='block'){
+			x.style.display='none';
+		}
 	}
 
 	-->
@@ -503,6 +533,9 @@ function tholds() {
 			}else{
 				print '<a href="' .  htmlspecialchars($config['url_path'] . 'plugins/thold/thold.php?id=' . $row["id"] . '&action=enable') . '"><img src="' . $config['url_path'] . 'plugins/thold/images/enable_thold.png" border="0" alt="" title="Enable Threshold"></a>';
 			}
+			$imgId = "temp_disable_".$row["id"];
+			$disableUrl = htmlspecialchars($config['url_path'] . 'plugins/thold/thold.php?id=' . $row["id"] . '&action=temp_disable');
+			print '<img style="cursor: pointer; cursor: hand;" id="'. $imgId .'" src="' . $config['url_path'] . 'plugins/thold/images/temp_disable_thold.png" border="0" alt="" title="Temporary Disable Threshold" onclick="showCalForm(\''. $imgId .'\',\'' .$disableUrl.'\',\''. $row["restoretime"] .'\')">';
 			print "<a href='". htmlspecialchars($config['url_path'] . "graph.php?local_graph_id=" . $row['graph_id'] . "&rra_id=all") . "'><img src='" . $config['url_path'] . "plugins/thold/images/view_graphs.gif' border='0' alt='' title='View Graph'></a>";
 			print "<a href='". htmlspecialchars($config['url_path'] . "plugins/thold/thold_graph.php?tab=log&threshold_id=" . $row["id"] . "&status=-1") . "'><img src='" . $config['url_path'] . "plugins/thold/images/view_log.gif' border='0' alt='' title='View Threshold History'></a>";
 
@@ -545,6 +578,16 @@ function tholds() {
 		print '<td colspan=12><center>No Thresholds</center></td></tr>';
 	}
 	print $nav;
+
+	$calForm = "<div id=calForm style='display:none;border: solid 2px black;padding: 10px;width: 190px;  background-color:#E5E5E5'>
+		<label for='calEdit'>Disable threshold until:</label>
+        <p>
+        <input type='Text' readOnly=true id='calEdit' maxlength='20' size='13'/>
+        <img src='" . $config['url_path'] . "plugins/thold/images/cal.gif' onclick=\"javascript:NewCssCal ('calEdit','yyyyMMdd','dropdown',true,'24')\" style='cursor:pointer'/>
+        <p>
+        <input id='tempDisableBtn' type='button' value='Disable treshold'> <input type='button' onclick='hideCalForm()' value='Cancel'>
+	</div>";
+	print $calForm;
 	html_end_box(false);
 
 	thold_legend();

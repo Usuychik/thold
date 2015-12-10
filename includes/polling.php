@@ -140,7 +140,7 @@ function thold_poller_output ($rrd_update_array) {
 function thold_check_all_thresholds () {
 	global $config;
 	include_once($config['base_path'] . '/plugins/thold/thold_functions.php');
-	$tholds = do_hook_function('thold_get_live_hosts', db_fetch_assoc("SELECT data_id, rra_id, lastread, cdef FROM thold_data WHERE thold_enabled='on' AND tcheck=1"));
+	$tholds = do_hook_function('thold_get_live_hosts', db_fetch_assoc("SELECT data_id, rra_id, lastread, cdef FROM thold_data WHERE (thold_enabled='on' OR restoretime!='0000-00-00 00:00:00') AND tcheck=1 "));
 	$total_tholds = sizeof($tholds);
 	foreach ($tholds as $thold) {
 		$ds = db_fetch_cell('SELECT data_source_name FROM data_template_rrd WHERE id=' . $thold['data_id']);

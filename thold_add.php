@@ -164,6 +164,12 @@ function thold_add_graphs_action_execute() {
 			$insert['bl_fail_trigger']    = $template['bl_fail_trigger'];
 			$insert['bl_alert']           = $template['bl_alert'];
 			$insert['repeat_alert']       = $template['repeat_alert'];
+			$insert['thold_alert_subj_cst']       = $template['thold_alert_subj_cst'];
+			$insert['thold_alert_text_cst']  = $template['thold_alert_text_cst'];
+			$insert['thold_warning_subj_cst'] = $template['thold_warning_subj_cst'];
+			$insert['thold_warning_text_cst']       = $template['thold_warning_text_cst'];
+			$insert['thold_normal_subj_cst']  = $template['thold_normal_subj_cst'];
+			$insert['thold_normal_text_cst'] = $template['thold_normal_text_cst'];
 			$insert['notify_extra']       = $template['notify_extra'];
 			$insert['alert_phones_extra']  = $template['alert_phones_extra'];
 			$insert['alert_command'] = $template['alert_command'];

@@ -124,6 +124,10 @@ switch($_REQUEST['action']) {
 		thold_threshold_enable($_REQUEST["id"]);
 		header('Location: ' . $_SERVER["HTTP_REFERER"]);
 		exit;
+	case 'temp_disable':
+		thold_threshold_temp_disable($_REQUEST["id"], $_REQUEST["restoretime"]);
+		header('Location: ' . $_SERVER["HTTP_REFERER"]);
+		exit;
 }
 
 include_once($config['include_path'] . '/top_header.php');
@@ -333,6 +337,11 @@ $data_types = array (
 	1 => 'CDEF',
 	2 => 'Percentage',
 	3 => 'RPN Expression'
+);
+
+$switch_types = array (
+	0 => 'Off',
+	1 => 'On'
 );
 
 $data_fields = array();
@@ -666,6 +675,73 @@ $form_array = array(
 			'max_length' => '255',
 			'size' => '80'
 		),
+		'msg_header' => array(
+			'friendly_name' => 'Custom Message Settings',
+			'method' => 'spacer',
+		),
+		'custom_msg' => array(
+			'friendly_name' => 'Custom message and/or subject',
+			'method' => 'drop_array',
+			'on_change' => 'enableCustomMsg()',
+			'default' => '0',
+			'array' => $switch_types,
+			'description' => 'Put here your custom message and/or subject for treshold events. If you want to change only subject or message - leave another fild empty',
+			'value' => isset($thold_item_data['custom_msg']) ? $thold_item_data['custom_msg'] : '0',
+		),
+		'thold_alert_subj_cst' => array(
+			'friendly_name' => 'Cusctom Threshold Alert Subject',
+			'description' => 'This is the message that will be displayed at the Subject of all Threshold Alerts (500 Char MAX)',
+			'method' => 'textarea',
+			'class' => 'textAreaNotes',
+			'textarea_rows' => '2',
+			'textarea_cols' => '80',
+			'value' => isset($thold_item_data['thold_alert_subj_cst']) ? $thold_item_data['thold_alert_subj_cst'] : ''
+		),
+		'thold_alert_text_cst' => array(
+			'friendly_name' => 'Cusctom Threshold Alert Message',
+			'description' => 'This is the message that will be displayed at the top of all Threshold Alerts (255 Char MAX).  HTML is allowed, but will be removed for text only Emails.  There are several descriptors that may be used.<br>&#060DESCRIPTION&#062 &#060HOSTNAME&#062 &#060TIME&#062 &#060URL&#062 &#060GRAPHID&#062 &#060CURRENTVALUE&#062 &#060THRESHOLDNAME&#062  &#060DSNAME&#062 &#060SUBJECT&#062 &#060GRAPH&#062',
+			'method' => 'textarea',
+			'class' => 'textAreaNotes',
+			'textarea_rows' => '5',
+			'textarea_cols' => '80',
+			'value' => isset($thold_item_data['thold_alert_text_cst']) ? $thold_item_data['thold_alert_text_cst'] : ''
+		),
+		'thold_warning_subj_cst' => array(
+			'friendly_name' => 'Cusctom Threshold Warning Subject',
+			'description' => 'This is the message that will be displayed at the Subject of all threshold warnings (500 Char MAX)',
+			'method' => 'textarea',
+			'class' => 'textAreaNotes',
+			'textarea_rows' => '2',
+			'textarea_cols' => '80',
+			'value' => isset($thold_item_data['thold_warning_subj_cst']) ? $thold_item_data['thold_warning_subj_cst'] : ''
+		),
+		'thold_warning_text_cst' => array(
+			'friendly_name' => 'Cusctom Threshold Warning Message',
+			'description' => 'This is the message that will be displayed at the top of all threshold warnings (255 Char MAX).  HTML is allowed, but will be removed for text only Emails.  There are several descriptors that may be used.<br>&#060DESCRIPTION&#062 &#060HOSTNAME&#062 &#060TIME&#062 &#060URL&#062 &#060GRAPHID&#062 &#060CURRENTVALUE&#062 &#060THRESHOLDNAME&#062  &#060DSNAME&#062 &#060SUBJECT&#062 &#060GRAPH&#062',
+			'method' => 'textarea',
+			'class' => 'textAreaNotes',
+			'textarea_rows' => '5',
+			'textarea_cols' => '80',
+			'value' => isset($thold_item_data['thold_warning_text_cst']) ? $thold_item_data['thold_warning_text_cst'] : ''
+		),
+		'thold_normal_subj_cst' => array(
+			'friendly_name' => 'Cusctom Threshold Normal Subject',
+			'description' => 'This is the message that will be displayed at the Subject of all threshold normal events (500 Char MAX)',
+			'method' => 'textarea',
+			'class' => 'textAreaNotes',
+			'textarea_rows' => '2',
+			'textarea_cols' => '80',
+			'value' => isset($thold_item_data['thold_normal_subj_cst']) ? $thold_item_data['thold_normal_subj_cst'] : ''
+		),
+		'thold_normal_text_cst' => array(
+			'friendly_name' => 'Cusctom Threshold Normal Message',
+			'description' => 'This is the message that will be displayed at the top of all threshold normal events (255 Char MAX).  HTML is allowed, but will be removed for text only Emails.  There are several descriptors that may be used.<br>&#060DESCRIPTION&#062 &#060HOSTNAME&#062 &#060TIME&#062 &#060URL&#062 &#060GRAPHID&#062 &#060CURRENTVALUE&#062 &#060THRESHOLDNAME&#062  &#060DSNAME&#062 &#060SUBJECT&#062 &#060GRAPH&#062',
+			'method' => 'textarea',
+			'class' => 'textAreaNotes',
+			'textarea_rows' => '5',
+			'textarea_cols' => '80',
+			'value' => isset($thold_item_data['thold_normal_text_cst']) ? $thold_item_data['thold_normal_text_cst'] : ''
+		),
 		'other_header' => array(
 			'friendly_name' => 'Other Settings',
 			'method' => 'spacer',
@@ -686,26 +762,7 @@ $form_array = array(
 			'none_value' => 'None',
 			'sql' => 'SELECT id, name FROM plugin_notification_lists ORDER BY name'
 		)
-		/*),
-		
-		'warning_phones' => array(
-			'friendly_name' => 'Warning Phones Notification List',
-			'method' => 'drop_sql',
-			'description' => 'You may specify choose a Notification Phone List to receive Warnings for this Data Source',
-			'value' => isset($thold_item_data['warning_phones']) ? $thold_item_data['warning_phones'] : '',
-			'none_value' => 'None',
-			'sql' => 'SELECT id, name FROM plugin_notification_lists ORDER BY name'
-		),
-		'alert_phones' => array(
-			'friendly_name' => 'Alert Phones Notification List',
-			'method' => 'drop_sql',
-			'description' => 'You may specify choose a Notification Phone List to receive Alerts for this Data Source',
-			'value' => isset($thold_item_data['alert_phones']) ? $thold_item_data['alert_phones'] : '',
-			'none_value' => 'None',
-			'sql' => 'SELECT id, name FROM plugin_notification_lists ORDER BY name'
-		)*/
-	);
-
+		);
 	if (read_config_option("thold_disable_legacy") != 'on') {
 		$extra = array(
 			'notify_accounts' => array(
@@ -973,8 +1030,30 @@ unset($template_data_rrds);
 		document.graphimage.src = "../../graph_image.php?local_graph_id=" + id + "&rra_id=0&graph_start=-32400&graph_height=100&graph_width=300&graph_nolegend=true";
 	}
 
+	function enableCustomMsg() {
+		type = document.getElementById('custom_msg').value;
+		switch(type) {
+		case '0':
+			document.getElementById('row_thold_alert_subj_cst').style.display  = 'none';
+			document.getElementById('row_thold_alert_text_cst').style.display  = 'none';
+			document.getElementById('row_thold_warning_subj_cst').style.display  = 'none';
+			document.getElementById('row_thold_warning_text_cst').style.display  = 'none';
+			document.getElementById('row_thold_normal_subj_cst').style.display  = 'none';
+			document.getElementById('row_thold_normal_text_cst').style.display  = 'none';
+			break;
+		case '1':
+			document.getElementById('row_thold_alert_subj_cst').style.display  = '';
+			document.getElementById('row_thold_alert_text_cst').style.display  = '';
+			document.getElementById('row_thold_warning_subj_cst').style.display  = '';
+			document.getElementById('row_thold_warning_text_cst').style.display  = '';
+			document.getElementById('row_thold_normal_subj_cst').style.display  = '';
+			document.getElementById('row_thold_normal_text_cst').style.display  = '';
+			break;
+		}
+	}
 	changeTholdType ();
 	changeDataType ();
+	enableCustomMsg ();
 
 	document.THold.element.onchange = GraphImage;
 </script>

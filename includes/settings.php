@@ -391,37 +391,37 @@ function thold_config_settings () {
 			'default' => 20
 			),
 		'thold_sms_header' => array(
-            'friendly_name' => 'SMS Sending Options',
-            'method' => 'spacer',
-        	),
+      'friendly_name' => 'SMS Sending Options',
+      'method' => 'spacer',
+     ),
 		'thold_enable_sms' => array(
-            'friendly_name' => 'Enable SMS sending',
-            'description' => 'If checked, this will cause Cacti to send SMS to numbers in Notification Lists.',
-            'method' => 'checkbox',
-            'default' => 'off',
-        	),
+      'friendly_name' => 'Enable SMS sending',
+      'description' => 'If checked, this will cause Cacti to send SMS to numbers in Notification Lists.',
+      'method' => 'checkbox',
+      'default' => 'off',
+    ),
 		'alert_phone' => array(
-            'friendly_name' => 'Dead Host Notifications phone numbers for SMS',
-            'description' => 'This is the comma separated list of phone numbers that the Dead Host Notifications will be sent to if the Global Notification List is selected.',
-            'method' => 'textbox',
-            'size' => 80,
-            'max_length' => 255,
-            ),
-        'thold_gammu_smsd_inject_path' => array(
-            'friendly_name' => 'Path to gammu-smsd-inject',
-            'description' => 'This is the path to gammu sms inject binary',
-            'method' => 'filepath',
-            'size' => 80,
-            'max_length' => 255,
-	        ),
-        'thold_sendsms_path' => array(
-            'friendly_name' => 'Path to sendsms script',
-            'description' => 'This is the path to sendsms script from SMS Server Tools 3',
-            'method' => 'filepath',
-            'size' => 80,
-	        'max_length' => 255,
-            'default' => $config['base_path'] . '/plugins/thold/extras/sendsms'
-            )
+      'friendly_name' => 'Dead Host Notifications phone numbers for SMS',
+      'description' => 'This is the comma separated list of phone numbers that the Dead Host Notifications will be sent to if the Global Notification List is selected.',
+      'method' => 'textbox',
+      'size' => 80,
+      'max_length' => 255,
+    ),
+    'thold_gammu_smsd_inject_path' => array(
+      'friendly_name' => 'Path to gammu-smsd-inject',
+      'description' => 'This is the path to gammu sms inject binary',
+      'method' => 'filepath',
+      'size' => 80,
+      'max_length' => 255,
+	  ),
+    'thold_sendsms_path' => array(
+      'friendly_name' => 'Path to sendsms script',
+      'description' => 'This is the path to sendsms script from SMS Server Tools 3',
+      'method' => 'filepath',
+      'size' => 80,
+	    'max_length' => 255,
+      'default' => $config['base_path'] . '/plugins/thold/extras/sendsms'
+    )
 	);
 }
 

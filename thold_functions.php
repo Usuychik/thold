@@ -1050,7 +1050,7 @@ function plugin_thold_log_changes($id, $changed, $message = array()) {
 		//	}
 		//	$alert_phones = implode(',', $alert_phones);
 			if ($alert_phones != '') {
-				$alert_phones .= ',' . $thold['alert_phones_extra'];
+				$alert_phones .= ',' . $warning_phones_extra['alert_phones_extra'];
 			} else {
 				$alert_phones = $thold['alert_phones_extra'];
 			}
@@ -1248,7 +1248,7 @@ function thold_check_threshold ($rra_id, $data_id, $name, $currentval, $cdef) {
 	global $config, $plugins, $debug;
 
 	thold_debug("Checking Threshold:  DS:$name RRA_ID:$rra_id DATA_ID:$data_id VALUE:$currentval");
-	$debug = false;
+	$debug = true;
 
 	// Do not proceed if we have chosen to globally disable all alerts
 	if (read_config_option('thold_disable_all') == 'on') {
@@ -1264,15 +1264,31 @@ function thold_check_threshold ($rra_id, $data_id, $name, $currentval, $cdef) {
 		return;
 	}
 
-	/* Get all the info about the item from the database */
-	$item = db_fetch_assoc("SELECT * FROM thold_data WHERE thold_enabled='on' AND data_id=" . $data_id);
+	// /* Get all the info about the item from the database */
+	// $item = db_fetch_assoc("SELECT * FROM thold_data WHERE thold_enabled='on' AND data_id=" . $data_id);
 
-	/* return if the item doesn't exist, which means its disabled */
+	// /* return if the item doesn't exist, which means its disabled */
+	// if (!isset($item[0])) {
+	// 	thold_debug('Threshold is disabled');
+	// 	return;
+	// }
+	$item = db_fetch_assoc("SELECT * FROM thold_data WHERE data_id=" . $data_id );
 	if (!isset($item[0])) {
-		thold_debug('Threshold is disabled');
-		return;
+	 	thold_debug('No thresholds');
+	 	return;
 	}
 	$item = $item[0];
+	thold_debug("NOTE: threshold item status" . $item['thold_enabled']);
+
+	if ($item['thold_enabled'] == 'off'){
+		if (($item['restoretime'] != '0000-00-00 00:00:00') and (time() >= strtotime($item['restoretime']))){
+			thold_debug("NOTE: Threshold status changed from disabled to enabled");
+			db_execute("UPDATE thold_data SET thold_enabled='on', restoretime='0000-00-00 00:00:00' WHERE rra_id=". $rra_id ." AND data_id=" . $data_id);
+		} else{
+			thold_debug('Threshold is disabled');
+			return;
+		}
+	}
 
 	/* check for the weekend exemption on the threshold level */
 	if (($weekday == 'Saturday' || $weekday == 'Sunday') && $item['exempt'] == 'on') {
@@ -1327,6 +1343,35 @@ function thold_check_threshold ($rra_id, $data_id, $name, $currentval, $cdef) {
 	$alertstat = $item['thold_alert'];
 
 	/* make sure the alert text has been set */
+	$custom_msg = $item['custom_msg'];
+	if ( $custom_msg == 1) {
+		if ($item['thold_alert_subj_cst'] != ''){
+			$thold_alert_subj_cst = $item['thold_alert_subj_cst'];
+		}
+		if ($item['thold_alert_text_cst'] != ''){
+			$thold_alert_text = $item['thold_alert_text_cst'];
+		}
+		if ($item['thold_warning_subj_cst'] != ''){
+			$thold_warn_subj_cst = $item['thold_warning_subj_cst'];
+		}
+		if ($item['thold_warning_text_cst'] != ''){
+			$thold_warning_text = $item['thold_warning_text_cst'];
+		}
+		if ($item['thold_normal_subj_cst'] != ''){
+			$thold_normal_subj_cst = $item['thold_normal_subj_cst'];
+		}
+		if ($item['thold_normal_text_cst'] != ''){
+			$thold_normal_text_cst = $item['thold_normal_text_cst'];
+		}
+	} else {
+		$thold_alert_subj_cst = "";
+		$thold_alert_text = "";
+		$thold_warn_subj_cst = "";
+		$thold_warning_text = "";
+		$thold_normal_subj_cst = "";
+		$thold_normal_text_cst = "";
+	}
+
 	if (!isset($thold_alert_text) || $thold_alert_text == '') {
 		$thold_alert_text = "<html><body>An alert has been issued that requires your attention.<br><br><strong>Host</strong>: <DESCRIPTION> (<HOSTNAME>)<br><strong>URL</strong>: <URL><br><strong>Message</strong>: <SUBJECT><br><br><GRAPH></body></html>";
 	}
@@ -1389,9 +1434,11 @@ function thold_check_threshold ($rra_id, $data_id, $name, $currentval, $cdef) {
 	if (read_config_option('thold_disable_legacy') != 'on') {
 		$warning_phones = $item['warning_phones_extra'];
 	}
+
+	$warning_phones .= (strlen($warning_phones) ? ",":"") . get_thold_notification_phones($item['notify_warning']);
+
 	$alert_command = '';
     $alert_command = $item['alert_command'];
-    thold_debug('Alert Command: ' . $alert_command);
     $warning_command = $item['warning_command']; 
 
 	$types = array('High/Low', 'Baseline Deviation', 'Time Based');
@@ -1430,6 +1477,24 @@ function thold_check_threshold ($rra_id, $data_id, $name, $currentval, $cdef) {
 	$thold_warning_text = str_replace('<DATE_RFC822>', date(DATE_RFC822), $thold_warning_text);
 	$thold_warning_text = str_replace('<DEVICENOTE>', $h['notes'], $thold_warning_text);
 
+	if ($thold_normal_text_cst != ""){
+		$thold_normal_text_cst = str_replace('<DESCRIPTION>', $hostname['description'], $thold_normal_text_cst);
+		$thold_normal_text_cst = str_replace('<HOSTNAME>', $hostname['hostname'], $thold_normal_text_cst);
+		$thold_normal_text_cst = str_replace('<TIME>', time(), $thold_normal_text_cst);
+		$thold_normal_text_cst = str_replace('<GRAPHID>', $graph_id, $thold_normal_text_cst);
+		$thold_normal_text_cst = str_replace('<URL>', "<a href='$httpurl/graph.php?local_graph_id=$graph_id&rra_id=1'>$httpurl/graph.php?local_graph_id=$graph_id&rra_id=1</a>", $thold_normal_text_cst);
+		$thold_normal_text_cst = str_replace('<CURRENTVALUE>', $currentval, $thold_normal_text_cst);
+		$thold_normal_text_cst = str_replace('<THRESHOLDNAME>', $item['name'], $thold_normal_text_cst);
+		$thold_normal_text_cst = str_replace('<DSNAME>', $name, $thold_normal_text_cst);
+		$thold_normal_text_cst = str_replace('<THOLDTYPE>', $types[$item['thold_type']], $thold_normal_text_cst);
+		$thold_normal_text_cst = str_replace('<HI>', ($item['thold_type'] == 0 ? $item['thold_hi'] : ($item['thold_type'] == 2 ? $item['time_warning_hi'] : '')), $thold_normal_text_cst);
+		$thold_normal_text_cst = str_replace('<LOW>', ($item['thold_type'] == 0 ? $item['thold_low'] : ($item['thold_type'] == 2 ? $item['time_warning_low'] : '')), $thold_normal_text_cst);
+		$thold_normal_text_cst = str_replace('<TRIGGER>', ($item['thold_type'] == 0 ? $item['thold_warning_fail_trigger'] : ($item['thold_type'] == 2 ? $item['time_warning_fail_trigger'] : '')), $thold_normal_text_cst);
+		$thold_normal_text_cst = str_replace('<DURATION>', ($item['thold_type'] == 2 ? plugin_thold_duration_convert($item['rra_id'], $item['time_warning_fail_length'], 'time') : ''), $thold_normal_text_cst);
+		$thold_normal_text_cst = str_replace('<DATE_RFC822>', date(DATE_RFC822), $thold_normal_text_cst);
+		$thold_normal_text_cst = str_replace('<DEVICENOTE>', $h['notes'], $thold_normal_text_cst);
+	}
+	
 	$msg = $thold_alert_text;
 	$warn_msg = $thold_warning_text;
 
@@ -1467,8 +1532,11 @@ function thold_check_threshold ($rra_id, $data_id, $name, $currentval, $cdef) {
 			if ($item['thold_fail_count'] == $trigger || $ra) {
 				$notify = true;
 			}
-
-			$subject = "ALERT: " . $item['name'] . ($thold_show_datasource ? " [$name]" : '') . ' ' . ($ra ? 'is still ' : 'went') . ' ' . ($breach_up ? 'above' : 'below') . ' threshold of ' . ($breach_up ? $item['thold_hi'] : $item['thold_low']) . " with $currentval";
+			if ($custom_msg != 0 && $thold_alert_subj_cst !=""){
+				$subject = "ALERT: ". $item['name'] . ": " . $thold_alert_subj_cst;
+			} else{
+				$subject = "ALERT: " . $item['name'] . ($thold_show_datasource ? " [$name]" : '') . ' ' . ($ra ? 'is still ' : 'went') . ' ' . ($breach_up ? 'above' : 'below') . ' threshold of ' . ($breach_up ? $item['thold_hi'] : $item['thold_low']) . " with $currentval";
+			}
 			if ($notify) {
 				thold_debug('Alerting is necessary');
 
@@ -1522,9 +1590,11 @@ function thold_check_threshold ($rra_id, $data_id, $name, $currentval, $cdef) {
 			if ($item['thold_warning_fail_count'] == $warning_trigger || $ra) {
 				$notify = true;
 			}
-
-			$subject = ($notify ? "WARNING: ":"TRIGGER: ") . $item['name'] . ($thold_show_datasource ? " [$name]" : '') . ' ' . ($ra ? 'is still' : 'went') . ' ' . ($warning_breach_up ? 'above' : 'below') . ' threshold of ' . ($warning_breach_up ? $item['thold_warning_hi'] : $item['thold_warning_low']) . " with $currentval";
-
+			if ($custom_msg != 0 && $thold_warn_subj_cst !=""){
+				$subject = ($notify ? "WARNING: ":"TRIGGER: ") . $item['name'] . ": " . $thold_warn_subj_cst;
+			} else{
+				$subject = ($notify ? "WARNING: ":"TRIGGER: ") . $item['name'] . ($thold_show_datasource ? " [$name]" : '') . ' ' . ($ra ? 'is still' : 'went') . ' ' . ($warning_breach_up ? 'above' : 'below') . ' threshold of ' . ($warning_breach_up ? $item['thold_warning_hi'] : $item['thold_warning_low']) . " with $currentval";
+			}
 			if ($notify) {
 				thold_debug('Alerting is necessary');
 
@@ -1557,7 +1627,11 @@ function thold_check_threshold ($rra_id, $data_id, $name, $currentval, $cdef) {
 					'phones' => $warning_phones,
 					'command' => $warning_command));
 			}elseif (($item['thold_warning_fail_count'] >= $warning_trigger) && ($item['thold_fail_count'] >= $trigger)) {
-				$subject = "ALERT -> WARNING: ". $item['name'] . ($thold_show_datasource ? " [$name]" : '') . " Changed to Warning Threshold with Value $currentval";
+				if ($custom_msg != 0 && $thold_warn_subj_cst !=""){
+					$subject = "ALERT -> WARNING: " . $item['name'] . ": " . $thold_warn_subj_cst;
+				} else{
+					$subject = "ALERT -> WARNING: " . $item['name'] . ($thold_show_datasource ? " [$name]" : '') . " Changed to Warning Threshold with Value $currentval";
+				}
 
 				if (trim($alert_emails) != '') {
 					thold_mail($alert_emails, '', $subject, $warn_msg, $file_array);
@@ -1591,7 +1665,11 @@ function thold_check_threshold ($rra_id, $data_id, $name, $currentval, $cdef) {
 
 			/* if we were at an alert status before */
 			if ($alertstat != 0) {
-				$subject = "NORMAL: ". $item['name'] . ($thold_show_datasource ? " [$name]" : '') . " Restored to Normal Threshold with Value $currentval";
+				if ($custom_msg != 0 && $thold_normal_subj_cst !=""){
+					$subject = "NORMAL: " . $item['name'] . ": " . $thold_normal_subj_cst;
+				} else{
+					$subject = "NORMAL: ". $item['name'] . ($thold_show_datasource ? " [$name]" : '') . " Restored to Normal Threshold with Value $currentval";
+				}
 
 				db_execute("UPDATE thold_data
 					SET thold_alert=0, thold_fail_count=0, thold_warning_fail_count=0
@@ -1602,8 +1680,14 @@ function thold_check_threshold ($rra_id, $data_id, $name, $currentval, $cdef) {
 						logger($item['name'], 'ok', 0, $currentval, $warning_trigger, $item['thold_warning_fail_count'], $url);
 					}
 
+					if ($custom_msg != 0 && $thold_normal_text_cst !=""){
+						$msg = $thold_normal_text_cst;
+					} else{
+						$msg = $warn_msg;
+					}
+
 					if (trim($warning_emails) != '' && $item['restored_alert'] != 'on') {
-						thold_mail($warning_emails, '', $subject, $warn_msg, $file_array);
+						thold_mail($warning_emails, '', $subject, $msg, $file_array);
 					}
 
 					if (trim($warning_phones) != '' && $item['restored_alert'] != 'on') {
@@ -1626,6 +1710,10 @@ function thold_check_threshold ($rra_id, $data_id, $name, $currentval, $cdef) {
 					if ($logset == 1) {
 						logger($item['name'], 'ok', 0, $currentval, $trigger, $item['thold_fail_count'], $url);
 					}
+
+					if ($custom_msg != 0 && $thold_normal_text_cst !=""){
+						$msg = $thold_normal_text_cst;
+					} 
 
 					if (trim($alert_emails) != '' && $item['restored_alert'] != 'on') {
 						thold_mail($alert_emails, '', $subject, $msg, $file_array);
@@ -1674,8 +1762,14 @@ function thold_check_threshold ($rra_id, $data_id, $name, $currentval, $cdef) {
 					if ($logset == 1) {
 						logger($item['name'], 'ok', 0, $currentval, $item['bl_fail_trigger'], $item['bl_fail_count'], $url);
 					}
-
-					$subject = "NORMAL: " . $item['name'] . ($thold_show_datasource ? " [$name]" : '') . " restored to normal threshold with value $currentval";
+					if ($custom_msg != 0 && $thold_warn_subj_cst !=""){
+						$subject = "NORMAL: " . $item['name'] . ": " . $thold_normal_subj_cst;
+					} else{
+						$subject = "NORMAL: " . $item['name'] . ($thold_show_datasource ? " [$name]" : '') . " restored to normal threshold with value $currentval";
+					}
+					if ($custom_msg != 0 && $thold_normal_text_cst !=""){
+						$msg = $thold_normal_text_cst;
+					} 
 
 					if (trim($alert_emails) != '') {
 						thold_mail($alert_emails, '', $subject, $msg, $file_array);
@@ -1716,9 +1810,11 @@ function thold_check_threshold ($rra_id, $data_id, $name, $currentval, $cdef) {
 
 			if ($item['bl_fail_count'] == $bl_fail_trigger || $ra) {
 				thold_debug('Alerting is necessary');
-
-				$subject = "ALERT: " . $item['name'] . ($thold_show_datasource ? " [$name]" : '') . ' ' . ($ra ? 'is still' : 'went') . ' ' . ($breach_up ? 'above' : 'below') . " calculated baseline threshold " . ($breach_up ? $item['thold_hi'] : $item['thold_low']) . " with $currentval";
-
+				if ($custom_msg != 0 && $thold_alert_subj_cst !=""){
+					$subject = "ALERT: ". $item['name'] . ": " . $thold_alert_subj_cst;
+				} else{
+					$subject = "ALERT: " . $item['name'] . ($thold_show_datasource ? " [$name]" : '') . ' ' . ($ra ? 'is still' : 'went') . ' ' . ($breach_up ? 'above' : 'below') . " calculated baseline threshold " . ($breach_up ? $item['thold_hi'] : $item['thold_low']) . " with $currentval";
+				}
 				if ($logset == 1) {
 					logger($item['name'], ($ra ? 'realert':'alert'), ($breach_up ? $item['thold_hi'] : $item['thold_low']), $currentval, $item['bl_fail_trigger'], $item['bl_fail_count'], $url);
 				}
@@ -1734,10 +1830,6 @@ function thold_check_threshold ($rra_id, $data_id, $name, $currentval, $cdef) {
 				if (trim($alert_emails) != '') {
 					thold_mail($alert_emails, '', $subject, $msg, $file_array);
 				}
-
-				
-
-				
 
 				thold_log(array(
 					'type' => 1,
@@ -1829,9 +1921,11 @@ function thold_check_threshold ($rra_id, $data_id, $name, $currentval, $cdef) {
 			if ($failures == $trigger || $ra) {
 				$notify = true;
 			}
-
-			$subject = ($notify ? "ALERT: ":"TRIGGER: ") . $item['name'] . ($thold_show_datasource ? " [$name]" : '') . ' ' . ($failures > $trigger ? 'is still' : 'went') . ' ' . ($breach_up ? 'above' : 'below') . ' threshold of ' . ($breach_up ? $item['time_hi'] : $item['time_low']) . " with $currentval";
-
+			if ($custom_msg != 0 && $thold_alert_subj_cst !=""){
+				$subject = ($notify ? "ALERT: ":"TRIGGER: ") . $item['name'] . ": " . $thold_alert_subj_cst;
+			} else{
+				$subject = ($notify ? "ALERT: ":"TRIGGER: ") . $item['name'] . ($thold_show_datasource ? " [$name]" : '') . ' ' . ($failures > $trigger ? 'is still' : 'went') . ' ' . ($breach_up ? 'above' : 'below') . ' threshold of ' . ($breach_up ? $item['time_hi'] : $item['time_low']) . " with $currentval";
+			}				
 			if ($notify) {
 				thold_debug('Alerting is necessary');
 
@@ -1908,9 +2002,11 @@ function thold_check_threshold ($rra_id, $data_id, $name, $currentval, $cdef) {
 			if ($warning_failures == $warning_trigger || $ra) {
 				$notify = true;;
 			}
-
-			$subject = ($notify ? "WARNING: ":"TRIGGER: ") . $item['name'] . ($thold_show_datasource ? " [$name]" : '') . ' ' . ($warning_failures > $warning_trigger ? 'is still' : 'went') . ' ' . ($warning_breach_up ? 'above' : 'below') . ' threshold of ' . ($warning_breach_up ? $item['time_warning_hi'] : $item['time_warning_low']) . " with $currentval";
-
+			if ($custom_msg != 0 && $thold_warn_subj_cst !=""){
+				$subject = ($notify ? "WARNING: ":"TRIGGER: ") . ": " .$item['name'] . ": " . $thold_warn_subj_cst;
+			} else{
+				$subject = ($notify ? "WARNING: ":"TRIGGER: ") . $item['name'] . ($thold_show_datasource ? " [$name]" : '') . ' ' . ($warning_failures > $warning_trigger ? 'is still' : 'went') . ' ' . ($warning_breach_up ? 'above' : 'below') . ' threshold of ' . ($warning_breach_up ? $item['time_warning_hi'] : $item['time_warning_low']) . " with $currentval";
+			}
 			if ($notify) {
 				if ($logset == 1) {
 					logger($item['name'], ($warning_failures > $warning_trigger ? 'rewarning':'warning'), ($warning_breach_up ? $item['time_warning_hi'] : $item['time_warning_low']), $currentval, $warning_trigger, $warning_failures, $url);
@@ -1942,8 +2038,11 @@ function thold_check_threshold ($rra_id, $data_id, $name, $currentval, $cdef) {
 					'phones' => $warning_phones,
 					'command' => $warning_command));
 			} elseif ($alertstat != 0 && $warning_failures < $warning_trigger && $failures < $trigger) {
-				$subject = "ALERT -> WARNING: ". $item['name'] . ($thold_show_datasource ? " [$name]" : '') . " restored to warning threshold with value $currentval";
-
+				if ($custom_msg != 0 && $thold_warn_subj_cst !=""){
+					$subject = "ALERT -> WARNING: " . $item['name'] . ": " . $thold_warn_subj_cst;
+				} else{
+					$subject = "ALERT -> WARNING: ". $item['name'] . ($thold_show_datasource ? " [$name]" : '') . " restored to warning threshold with value $currentval";
+				}
 				thold_log(array(
 					'type' => 2,
 					'time' => time(),
@@ -1983,9 +2082,14 @@ function thold_check_threshold ($rra_id, $data_id, $name, $currentval, $cdef) {
 				if ($logset == 1) {
 					logger($item['name'], 'ok', 0, $currentval, $warning_trigger, $item['thold_warning_fail_count'], $url);
 				}
-
-				$subject = "NORMAL: ". $item['name'] . ($thold_show_datasource ? " [$name]" : '') . " restored to normal threshold with value $currentval";
-
+				if ($custom_msg != 0 && $thold_normal_subj_cst !=""){
+					$subject = "NORMAL: " . $item['name'] . ": " . $thold_normal_subj_cst;
+				} else{
+					$subject = "NORMAL: ". $item['name'] . ($thold_show_datasource ? " [$name]" : '') . " restored to normal threshold with value $currentval";
+				}
+				if ($custom_msg != 0 && $thold_normal_text_cst !=""){
+						$msg = $thold_normal_text_cst;
+				} 
 				if (trim($warning_emails) != '' && $item['restored_alert'] != 'on') {
 					thold_mail($warning_emails, '', $subject, $msg, $file_array);
 				}
@@ -2014,9 +2118,14 @@ function thold_check_threshold ($rra_id, $data_id, $name, $currentval, $cdef) {
 				if ($logset == 1) {
 					logger($item['name'], 'ok', 0, $currentval, $trigger, $item['thold_fail_count'], $url);
 				}
-
-				$subject = "NORMAL: ". $item['name'] . ($thold_show_datasource ? " [$name]" : '') . " restored to warning threshold with value $currentval";
-
+				if ($custom_msg != 0 && $thold_normal_subj_cst !=""){
+					$subject = "NORMAL: " . $item['name'] . ": " . $thold_normal_subj_cst;
+				} else{
+					$subject = "NORMAL: ". $item['name'] . ($thold_show_datasource ? " [$name]" : '') . " restored to warning threshold with value $currentval";
+				}
+				if ($custom_msg != 0 && $thold_normal_text_cst !=""){
+						$msg = $thold_normal_text_cst;
+				} 
 				if (trim($alert_emails) != '' && $item['restored_alert'] != 'on') {
 					thold_mail($alert_emails, '', $subject, $msg, $file_array);
 				}
@@ -2700,6 +2809,14 @@ function save_thold() {
 	$save['bl_pct_up'] = (trim($_POST['bl_pct_up'])) == '' ? '' : $_POST['bl_pct_up'];
 	$save['bl_fail_trigger'] = (trim($_POST['bl_fail_trigger'])) == '' ? read_config_option("alert_bl_trigger") : $_POST['bl_fail_trigger'];
 
+	$save['custom_msg']     = $_POST['custom_msg'];
+	$save['thold_alert_subj_cst'] = (trim($_POST['thold_alert_subj_cst'])) == '' ? '' : $_POST['thold_alert_subj_cst'];
+	$save['thold_alert_text_cst'] = (trim($_POST['thold_alert_text_cst'])) == '' ? '' : $_POST['thold_alert_text_cst'];
+	$save['thold_warning_subj_cst'] = (trim($_POST['thold_warning_subj_cst'])) == '' ? '' : $_POST['thold_warning_subj_cst'];
+	$save['thold_warning_text_cst'] = (trim($_POST['thold_warning_text_cst'])) == '' ? '' : $_POST['thold_warning_text_cst'];
+	$save['thold_normal_subj_cst'] = (trim($_POST['thold_normal_subj_cst'])) == '' ? '' : $_POST['thold_normal_subj_cst'];
+	$save['thold_normal_text_cst'] = (trim($_POST['thold_normal_text_cst'])) == '' ? '' : $_POST['thold_normal_text_cst'];
+
 	$save['repeat_alert'] = (trim($_POST['repeat_alert'])) == '' ? '' : $_POST['repeat_alert'];
 	$save['notify_extra'] = (trim($_POST['notify_extra'])) == '' ? '' : $_POST['notify_extra'];
 	$save['notify_warning_extra'] = (trim($_POST['notify_warning_extra'])) == '' ? '' : $_POST['notify_warning_extra'];
@@ -2837,12 +2954,19 @@ function autocreate($hostid) {
 					$insert['bl_fail_trigger']    = $template[$y]['bl_fail_trigger'];
 					$insert['bl_alert']           = $template[$y]['bl_alert'];
 					$insert['repeat_alert']       = $template[$y]['repeat_alert'];
+					$insert['custom_msg']     		= $template[$y]['custom_msg'];
+					$insert['thold_alert_subj_cst'] = $template[$y]['thold_alert_subj_cst'];
+					$insert['thold_alert_text_cst'] = $template[$y]['thold_alert_text_cst'];
+					$insert['thold_warning_subj_cst'] = $template[$y]['thold_alert_text_cst'];
+					$insert['thold_warning_text_cst'] = $template[$y]['thold_warning_text_cst'];
+					$insert['thold_normal_subj_cst'] = $template[$y]['thold_normal_subj_cst'];
+					$insert['thold_normal_text_cst'] = $template[$y]['thold_normal_text_cst'];
 					$insert['notify_extra']       = $template[$y]['notify_extra'];
 					$insert['notify_warning_extra'] = $template[$y]['notify_warning_extra'];
 					$insert['warning_phones_extra'] = $template[$y]['warning_phones_extra'];
-                    $insert['alert_phones_extra'] = $template[$y]['alert_phones_extra'];
-                    $insert['alert_command'] = $template[$y]['alert_command'];
-                    $insert['warning_command'] = $template[$y]['warning_command'];
+          $insert['alert_phones_extra'] = $template[$y]['alert_phones_extra'];
+          $insert['alert_command'] = $template[$y]['alert_command'];
+          $insert['warning_command'] = $template[$y]['warning_command'];
 					$insert['notify_warning']     = $template[$y]['notify_warning'];
 					$insert['notify_alert']       = $template[$y]['notify_alert'];
 					$insert['cdef']               = $template[$y]['cdef'];
@@ -3057,6 +3181,13 @@ function thold_template_update_threshold ($id, $template) {
 		thold_data.bl_alert = thold_template.bl_alert,
 		thold_data.bl_thold_valid = 0,
 		thold_data.repeat_alert = thold_template.repeat_alert,
+		thold_data.custom_msg = thold_template.custom_msg,
+		thold_data.thold_alert_subj_cst = thold_template.thold_alert_subj_cst,
+		thold_data.thold_alert_text_cst = thold_template.thold_alert_text_cst,
+		thold_data.thold_warning_subj_cst = thold_template.thold_warning_subj_cst,
+		thold_data.thold_warning_text_cst = thold_template.thold_warning_text_cst,
+		thold_data.thold_normal_subj_cst = thold_template.thold_normal_subj_cst,
+		thold_data.thold_normal_text_cst = thold_template.thold_normal_text_cst,
 		thold_data.notify_extra = thold_template.notify_extra,
 		thold_data.notify_warning_extra = thold_template.notify_warning_extra,
 		thold_data.alert_phones_extra = thold_template.alert_phones_extra,
@@ -3103,6 +3234,13 @@ function thold_template_update_thresholds ($id) {
 		thold_data.bl_alert = thold_template.bl_alert,
 		thold_data.bl_thold_valid = 0,
 		thold_data.repeat_alert = thold_template.repeat_alert,
+		thold_data.custom_msg = thold_template.custom_msg,
+		thold_data.thold_alert_subj_cst = thold_template.thold_alert_subj_cst,
+		thold_data.thold_alert_text_cst = thold_template.thold_alert_text_cst,
+		thold_data.thold_warning_subj_cst = thold_template.thold_warning_subj_cst,
+		thold_data.thold_warning_text_cst = thold_template.thold_warning_text_cst,
+		thold_data.thold_normal_subj_cst = thold_template.thold_normal_subj_cst,
+		thold_data.thold_normal_text_cst = thold_template.thold_normal_text_cst,
 		thold_data.notify_extra = thold_template.notify_extra,
 		thold_data.notify_warning_extra = thold_template.notify_warning_extra,
 		thold_data.alert_phones_extra = thold_template.alert_phones_extra,
@@ -3193,11 +3331,15 @@ function thold_cacti_log($string) {
 }
 
 function thold_threshold_enable($id) {
-	db_execute("UPDATE thold_data SET thold_enabled='on', thold_fail_count=0, thold_warning_fail_count=0, bl_fail_count=0, thold_alert=0, bl_alert=0 WHERE id=$id");
+	db_execute("UPDATE thold_data SET thold_enabled='on', thold_fail_count=0, thold_warning_fail_count=0, bl_fail_count=0, thold_alert=0, bl_alert=0, restoretime='0000-00-00 00:00:00' WHERE id=$id");
 }
 
 function thold_threshold_disable($id) {
-	db_execute("UPDATE thold_data SET thold_enabled='off', thold_fail_count=0, thold_warning_fail_count=0, bl_fail_count=0, thold_alert=0, bl_alert=0 WHERE id=$id");
+	db_execute("UPDATE thold_data SET thold_enabled='off', thold_fail_count=0, thold_warning_fail_count=0, bl_fail_count=0, thold_alert=0, bl_alert=0, restoretime='0000-00-00 00:00:00' WHERE id=$id");
+}
+
+function thold_threshold_temp_disable($id, $restoretime) {
+	db_execute("UPDATE thold_data SET thold_enabled='off', thold_fail_count=0, thold_warning_fail_count=0, bl_fail_count=0, thold_alert=0, bl_alert=0, restoretime='" . $restoretime ."' WHERE id=$id");
 }
 
 /**
@@ -3310,7 +3452,7 @@ function thold_sms($numbers, $msg) {
         thold_debug('DEBUG: thold_sms: no numbers defined, do nothing');
         return;
     }
-
+    thold_debug('Sending SMS to phones: ' . $warning_phones);
     foreach($sms_numbers as $key => $value) {
         if (strlen($thold_sendsms_path)>2) {
             $command = 'bash ' . $thold_sendsms_path . ' ' . trim($value) . ' "' . $msg . '"';
