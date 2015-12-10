@@ -1248,7 +1248,7 @@ function thold_check_threshold ($rra_id, $data_id, $name, $currentval, $cdef) {
 	global $config, $plugins, $debug;
 
 	thold_debug("Checking Threshold:  DS:$name RRA_ID:$rra_id DATA_ID:$data_id VALUE:$currentval");
-	$debug = true;
+	$debug = false;
 
 	// Do not proceed if we have chosen to globally disable all alerts
 	if (read_config_option('thold_disable_all') == 'on') {
